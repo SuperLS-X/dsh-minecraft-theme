@@ -7,6 +7,12 @@ MC 风格灰色按钮、像素字体、按钮点击音效、方块纹理选择/�
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
+## 截图
+
+| 主题 | 纹理管理 | 音乐播放器 |
+| --- | --- | --- |
+| ![主题](screenshots/theme.png) | ![纹理](screenshots/texture.png) | ![音乐](screenshots/music.png) |
+
 ## 功能特性
 
 ### 🎨 主题
