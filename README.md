@@ -50,11 +50,17 @@ dsh plugin --profile <profile> add @superls-x/dsh-minecraft-theme
 > 主机端在 `ctx.webServer` 上注册 `/mc/rpc` 路由供浏览器端 fetch 调用，
 > 本地资源（纹理/字体/音效/音乐）全部在主机进程内读取，不上传。
 
-> 插件需要两个本地资源目录才能完整运行：
-> - `<workspace>/mc-textures/zpix.ttf`（中文字体，可选，缺失时回退系统字体 / CDN）
-> - `<workspace>/mc-textures/music/*.ogg`（默认音乐，可选，缺失时从 CDN 拉取）
+> **无需任何本地资源即可完整使用**（在线时）。资源按以下优先级加载：
+> 1. 工作区 `<workspace>/mc-textures/`（用户自定义，可覆盖默认资源）
+> 2. 包内自带默认资源：`click.ogg` 点击音效、`silkscreen` 英文字体、
+>    `dotgothic16` 中文字体（约 410KB，随插件分发）
+> 3. CDN 兜底：中文字体 Zpix、16 首 Minecraft 原声音乐
 >
-> 音效/字体/默认音乐会通过主机进程读取本地文件（工作区沙箱内路径）。
+> 可选优化（离线或追求最佳效果）：把资源放进工作区——
+> - `<workspace>/mc-textures/zpix.ttf`（中文字体，7MB，效果最佳）
+> - `<workspace>/mc-textures/music/*.ogg`（默认音乐，避免每次在线拉取）
+>
+> 自定义纹理与设置保存到工作区 `<workspace>/mc-textures/custom-textures.json`。
 
 ## 使用
 
@@ -68,8 +74,9 @@ dsh plugin --profile <profile> add @superls-x/dsh-minecraft-theme
 ```
 dsh-minecraft-theme/
 ├── cordis.patch.yml   # 组合补丁：挂载为 profile bundle 行（inject fs/sandboxPolicy/webServer）
-├── lib/index.js       # 主机端：/mc/rpc 路由 + 本地资源读取（纹理/字体/音效/音乐）
+├── lib/index.js       # 主机端：/mc/rpc 路由 + 资源读取（工作区 → 包内 → CDN 兜底）
 ├── client/client.js   # 浏览器端：主题 + 纹理管理 + 音乐播放器（fetch /mc/rpc）
+├── mc-textures/       # 包内默认资源：click.ogg / silkscreen / dotgothic16
 ├── package.json
 ├── README.md
 └── LICENSE
@@ -79,7 +86,7 @@ dsh-minecraft-theme/
 
 - Minecraft 是 Mojang Studios 的商标；本插件与 Mojang 无关
 - 默认音乐/音效/纹理来自 [InventivetalentDev/minecraft-assets](https://github.com/InventivetalentDev/minecraft-assets)（非商业学习用途），相关版权归其所有者
-- 字体 Zpix（[SolidZORO/zpix-pixel-font](https://github.com/SolidZORO/zpix-pixel-font)）与 Silkscreen 版权归其作者
+- 包内随插件分发的字体 Silkscreen 与 DotGothic16 采用 SIL OFL 1.1 协议；Zpix（[SolidZORO/zpix-pixel-font](https://github.com/SolidZORO/zpix-pixel-font)）版权归其作者，仅通过 CDN 按需加载，不随包分发
 
 ## License
 
