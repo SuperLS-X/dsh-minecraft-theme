@@ -1,4 +1,10 @@
 # dsh-minecraft-theme bundle patch: mounts the theme as a profile bundle row.
+# The host half (lib/index.js) serves /mc/rpc over ctx.webServer and reads the
+# workspace's mc-textures assets through ctx.fs under ctx.sandboxPolicy.
 - insert:
     - id: mc-theme
       name: '@superls-x/dsh-minecraft-theme'
+      inject:
+        - fs
+        - sandboxPolicy
+        - webServer

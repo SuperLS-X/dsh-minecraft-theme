@@ -1,6 +1,6 @@
 {
   "name": "@superls-x/dsh-minecraft-theme",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Minecraft 主题插件（DeepSeek Harness）：方块纹理背景铺满页面、像素字体、MC 风格按钮与点击音效、纹理导入与管理、音乐播放器（16 首 Minecraft 原声 + 本地音乐文件夹）。",
   "type": "module",
   "main": "lib/index.js",
@@ -14,7 +14,11 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "platform": "web"
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-theme"
+      ]
     }
   },
   "files": [

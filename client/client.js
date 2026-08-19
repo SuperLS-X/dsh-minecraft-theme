@@ -12,6 +12,42 @@ window.__ModuleLoader__.load({
     var exports = module.exports;
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
     let React = require('react');
+// DSH rc.7 static-plugin RPC: the host half serves /mc/rpc via ctx.webServer.
+function mcRpc(method, args) {
+  return fetch('/mc/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method: method, args: args })
+  }).then(function (r) { return r.json(); });
+}
+// Static plugins run as plain CJS modules: the factory scope only gets
+// `require`, so the `styles` closure symbol of the dynamic cordis model is NOT
+// available here. Provide the same API (`insert(css) -> disposer`,
+// `count`, `dispose()`) backed by real <style> tags owned by this package.
+const styles = (function () {
+  const tags = new Set();
+  const insert = function (css) {
+    if (typeof css !== 'string') throw new Error('styles.insert(css) needs a CSS string');
+    const tag = document.createElement('style');
+    tag.setAttribute('data-plugin', '@superls-x/dsh-minecraft-theme');
+    tag.textContent = css;
+    document.head.appendChild(tag);
+    tags.add(tag);
+    return function () {
+      tags.delete(tag);
+      if (tag.parentNode) tag.parentNode.removeChild(tag);
+    };
+  };
+  const dispose = function () {
+    tags.forEach(function (tag) { if (tag.parentNode) tag.parentNode.removeChild(tag); });
+    tags.clear();
+  };
+  return {
+    insert: insert,
+    dispose: dispose,
+    get count() { return tags.size; }
+  };
+})();
 const PN = 'data:image/png;base64,';
 
 
@@ -131,7 +167,7 @@ function swatchData(data, color) {
 
 function saveCustom() {
   try {
-    host.call('save-custom-textures', { custom: store.custom, customCount: store.customCount, renames: store.renames || {}, hidden: store.hidden || [], order: store.order || [] }).catch(() => {});
+    mcRpc('save-custom-textures', { custom: store.custom, customCount: store.customCount, renames: store.renames || {}, hidden: store.hidden || [], order: store.order || [] }).catch(() => {});
   } catch (e) { /* ignore */ }
 }
 const MCDN = 'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/sounds/';
@@ -185,7 +221,7 @@ function getMusicAudio() {
 function ensureTrackLoaded(t) {
   if (t.data) return Promise.resolve(t.data);
   if (musicCache[t.id]) return Promise.resolve(musicCache[t.id]);
-  const p = t.path ? host.call('get-music-file', { path: t.path }) : host.call('get-music-track', { name: t.id });
+  const p = t.path ? mcRpc('get-music-file', { path: t.path }) : mcRpc('get-music-track', { name: t.id });
   return p.then((res) => {
     if (res && res.data) { cachePut(t.id, res.data); return res.data; }
     throw new Error('曲目不可用');
@@ -196,7 +232,7 @@ function prefetchTrack(i) {
     const list = getTracks();
     const t = list[i];
     if (!t || t.data || musicCache[t.id]) return;
-    const p = t.path ? host.call('get-music-file', { path: t.path }) : host.call('get-music-track', { name: t.id });
+    const p = t.path ? mcRpc('get-music-file', { path: t.path }) : mcRpc('get-music-track', { name: t.id });
     p.then((res) => {
       if (res && res.data) cachePut(t.id, res.data);
     }).catch(() => {});
@@ -321,7 +357,7 @@ function ImportBox() {
       data = input;
     } else {
       try {
-        const res = await host.call('import-texture', { path: input });
+        const res = await mcRpc('import-texture', { path: input });
         if (res && res.data) data = res.data;
         else { setMsg('导入失败: ' + String((res && res.error) || '未知错误')); return; }
       } catch (e) {
@@ -679,17 +715,23 @@ function TexturePicker() {
 }
 
 module.exports.default = {
+  name: '@superls-x/dsh-minecraft-theme',
+  inject: ['theme', 'slots'],
   apply(ctx) {
     const theme = ctx.get('theme');
     if (theme !== undefined) {
       ctx.effect(() => theme.overrideTokens('minecraft-theme', TOKENS));
     }
     ctx.effect(() => styles.insert(CHROME));
-    ctx.effect(() => () => { if (musicAudio) { try { musicAudio.pause(); musicAudio.src = ''; } catch (e) { /* ignore */ } } });
+    ctx.effect(() => () => {
+      if (texDisposer) { try { texDisposer(); } catch (e) { /* ignore */ } texDisposer = null; }
+      styles.dispose();
+      if (musicAudio) { try { musicAudio.pause(); musicAudio.src = ''; } catch (e) { /* ignore */ } }
+    });
     ctx.effect(() => {
       let done = false;
       let disposer = null;
-      host.call('get-cjk-font').then((res) => {
+      mcRpc('get-cjk-font').then((res) => {
         if (done) return;
         if (res && res.data) {
           const fmt = res.format === 'woff2' ? 'woff2' : 'truetype';
@@ -701,7 +743,7 @@ module.exports.default = {
     ctx.effect(() => {
       let done = false;
       let disposer = null;
-      host.call('get-latin-font').then((res) => {
+      mcRpc('get-latin-font').then((res) => {
         if (done) return;
         if (res && res.data) {
           disposer = styles.insert('@font-face{font-family:"McPixel";src:url("' + res.data + '") format("woff2");font-weight:400;font-style:normal;font-display:swap;}');
@@ -713,7 +755,7 @@ module.exports.default = {
     let clickAudio = null;
     ctx.effect(() => {
       let done = false;
-      host.call('get-click-sound').then((res) => {
+      mcRpc('get-click-sound').then((res) => {
         if (done) return;
         if (res && res.data) {
           clickUri = res.data;
@@ -757,7 +799,7 @@ module.exports.default = {
     });
     ctx.effect(() => {
       let done = false;
-      host.call('load-custom-textures').then((res) => {
+      mcRpc('load-custom-textures').then((res) => {
         if (done) return;
         if (res) {
           setStore({

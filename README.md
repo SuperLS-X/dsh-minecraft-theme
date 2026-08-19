@@ -45,11 +45,16 @@ dsh plugin --profile <profile> add link:D:/Documents/dsh/mc-plugin
 dsh plugin --profile <profile> add @superls-x/dsh-minecraft-theme
 ```
 
+> 插件是 DSH rc.7 静态插件（static plugin）：主机端通过 `cordis.patch.yml`
+> 以 profile bundle 行挂载，浏览器端由 `/plugins/<id>/client.js` 提供。
+> 主机端在 `ctx.webServer` 上注册 `/mc/rpc` 路由供浏览器端 fetch 调用，
+> 本地资源（纹理/字体/音效/音乐）全部在主机进程内读取，不上传。
+
 > 插件需要两个本地资源目录才能完整运行：
-> - `<workspace>/mc-textures/zpix.ttf`（中文字体，可选，缺失时回退系统字体）
+> - `<workspace>/mc-textures/zpix.ttf`（中文字体，可选，缺失时回退系统字体 / CDN）
 > - `<workspace>/mc-textures/music/*.ogg`（默认音乐，可选，缺失时从 CDN 拉取）
 >
-> 音效/字体/默认音乐会通过主机进程读取本地文件。
+> 音效/字体/默认音乐会通过主机进程读取本地文件（工作区沙箱内路径）。
 
 ## 使用
 
@@ -62,9 +67,9 @@ dsh plugin --profile <profile> add @superls-x/dsh-minecraft-theme
 
 ```
 dsh-minecraft-theme/
-├── cordis.patch.yml   # 组合补丁：作为 profile bundle 挂载
-├── lib/index.js       # 主机端：本地资源读取（纹理/字体/音效/音乐）
-├── client/client.js   # 浏览器端：主题 + 纹理管理 + 音乐播放器
+├── cordis.patch.yml   # 组合补丁：挂载为 profile bundle 行（inject fs/sandboxPolicy/webServer）
+├── lib/index.js       # 主机端：/mc/rpc 路由 + 本地资源读取（纹理/字体/音效/音乐）
+├── client/client.js   # 浏览器端：主题 + 纹理管理 + 音乐播放器（fetch /mc/rpc）
 ├── package.json
 ├── README.md
 └── LICENSE
