@@ -1,0 +1,4 @@
+# dsh-minecraft-theme bundle patch: mounts the theme as a profile bundle row.
+- insert:
+    - id: mc-theme
+      name: '@superls-x/dsh-minecraft-theme'
