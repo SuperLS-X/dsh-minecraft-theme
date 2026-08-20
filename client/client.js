@@ -119,12 +119,18 @@ const CHROME = [
   '.mc-panel { background: rgba(14,10,7,0.92); border: 3px solid #262626; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.18), inset -3px -3px 0 rgba(0,0,0,0.5), 0 10px 28px rgba(0,0,0,0.65); border-radius: 2px; }',
   '.mc-close { background: #6e6e6e !important; }',
   '.mc-close:hover { background: #7d7d7d !important; }',
+<<<<<<< HEAD
     "[data-message-role='user'], [class*='message'] [class*='user'], [data-chat-flow] [class*='user'] { background-image:url('" + TEX.obsidian.data + "') !important; background-size:32px 32px !important; background-repeat:repeat !important; image-rendering:pixelated; background-color:#14101e !important; border: 3px solid #000 !important; border-radius: 12px !important; box-shadow: inset 0 2px 0 rgba(200,150,255,0.2), inset 2px 0 0 rgba(200,150,255,0.08), inset 0 -3px 0 rgba(0,0,0,0.6), inset -2px 0 0 rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.5) !important; color: #fff !important; }",
     "[data-message-role='user'] *, [class*='message'] [class*='user'] *, [data-chat-flow] [class*='user'] * { color: #fff !important; }",
     "[data-message-role='user'] *:not(button):not(a), [class*='message'] [class*='user'] *:not(button):not(a), [data-chat-flow] [class*='user'] *:not(button):not(a) { background: transparent !important; border: none !important; box-shadow: none !important; }",
 ].join('\n');
 
 const store = { open: false, texture: 'grass', bubble: 'obsidian', particles: true, size: 128, custom: [], customCount: 0, renames: {}, hidden: [], order: [], manage: false, musicOpen: false, musicTrack: -1, musicPlaying: false, musicVolume: 0.7, customMusic: [], customMusicCount: 0 };
+=======
+].join('\n');
+
+const store = { open: false, texture: 'grass', particles: true, size: 128, custom: [], customCount: 0, renames: {}, hidden: [], order: [], manage: false, musicOpen: false, musicTrack: -1, musicPlaying: false, musicVolume: 0.7, customMusic: [], customMusicCount: 0 };
+>>>>>>> 4915a6a16b66e004142c5bde42db968c201e1beb
 const listeners = [];
 function setStore(patch) {
   Object.assign(store, patch);
@@ -164,6 +170,7 @@ function applyTexture(id) {
   );
 }
 
+<<<<<<< HEAD
 let bubbleDisposer = null;
 function applyBubbleTexture(id) {
   const t = getTex(id);
@@ -177,6 +184,8 @@ function applyBubbleTexture(id) {
 }
 
 
+=======
+>>>>>>> 4915a6a16b66e004142c5bde42db968c201e1beb
 function swatchData(data, color) {
   return { backgroundImage: 'url("' + data + '")', backgroundSize: '100% 100%', imageRendering: 'pixelated', backgroundColor: color || '#555' };
 }
@@ -720,6 +729,7 @@ function TexturePicker() {
           style: { padding: '2px 8px', fontSize: 12 },
         }, String(s) + 'px'))
       ),
+<<<<<<< HEAD
         React.createElement('div', { style: { marginBottom: 12, color: '#f2f2f2', fontSize: 13 } },
           React.createElement('div', { style: { marginBottom: 6 } }, '气泡纹理:'),
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
@@ -735,6 +745,8 @@ function TexturePicker() {
             ))
           )
         ),
+=======
+>>>>>>> 4915a6a16b66e004142c5bde42db968c201e1beb
       React.createElement(CustomList, null),
       React.createElement(ImportBox, null),
       React.createElement('div', { style: { marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, color: '#f2f2f2', fontSize: 13 } },
@@ -756,7 +768,10 @@ module.exports.default = {
     ctx.effect(() => styles.insert(CHROME));
     ctx.effect(() => () => {
       if (texDisposer) { try { texDisposer(); } catch (e) { /* ignore */ } texDisposer = null; }
+<<<<<<< HEAD
         if (bubbleDisposer) { try { bubbleDisposer(); } catch (e) { /* ignore */ } bubbleDisposer = null; }
+=======
+>>>>>>> 4915a6a16b66e004142c5bde42db968c201e1beb
       styles.dispose();
       if (musicAudio) { try { musicAudio.pause(); musicAudio.src = ''; } catch (e) { /* ignore */ } }
     });
@@ -846,7 +861,10 @@ module.exports.default = {
       return () => { done = true; };
     });
     applyTexture('grass');
+<<<<<<< HEAD
       applyBubbleTexture(store.bubble);
+=======
+>>>>>>> 4915a6a16b66e004142c5bde42db968c201e1beb
     const slots = ctx.get('slots');
     if (slots === undefined) return;
     slots.inject('sidebar.footer.action', () => slots.register(
