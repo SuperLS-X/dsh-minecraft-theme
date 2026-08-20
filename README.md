@@ -38,11 +38,9 @@ MC 风格灰色按钮、像素字体、按钮点击音效、方块纹理选择/�
 ## 安装
 
 ```bash
-# 从本地仓库目录安装（开发）
-dsh plugin --profile <profile> add link:D:/Documents/dsh/mc-plugin
-
-# 发布到 npm 后
-dsh plugin --profile <profile> add @superls-x/dsh-minecraft-theme
+直接在deepseek harness输入：
+  安装https://github.com/SuperLS-X/dsh-minecraft-theme
+剩下的让他自己来做就行，你只需要点一点同意
 ```
 
 > 插件是 DSH rc.7 静态插件（static plugin）：主机端通过 `cordis.patch.yml`
