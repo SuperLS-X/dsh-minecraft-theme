@@ -121,7 +121,7 @@ const CHROME = [
   '.mc-close:hover { background: #7d7d7d !important; }',
 ].join('\n');
 
-const store = { open: false, texture: 'grass', particles: true, size: 128, custom: [], customCount: 0, renames: {}, hidden: [], order: [], manage: false, musicOpen: false, musicTrack: -1, musicPlaying: false, musicVolume: 0.7, customMusic: [], customMusicCount: 0 };
+const store = { open: false, tab: 'bg', texture: 'grass', bubble: 'none', bubbleSize: 32, particles: true, size: 128, custom: [], customCount: 0, renames: {}, hidden: [], order: [], manage: false, musicOpen: false, musicTrack: -1, musicPlaying: false, musicVolume: 0.7, customMusic: [], customMusicCount: 0 };
 const listeners = [];
 function setStore(patch) {
   Object.assign(store, patch);
@@ -161,8 +161,54 @@ function applyTexture(id) {
   );
 }
 
+let bubbleDisposer = null;
+function applyBubbleTexture(id) {
+  if (bubbleDisposer) { bubbleDisposer(); bubbleDisposer = null; }
+  // 'none' (or empty) means no bubble texture: remove any injected style so
+  // the bubble falls back to DSH's default (transparent) background.
+  if (!id || id === 'none') return;
+  const t = getTex(id);
+  if (!t) return;
+  const px = (store.bubbleSize || 32) + 'px';
+  // Texture only the actual bubble element itself (`gdEzaW_bubble` is the
+  // user message bubble; class-substring match, no ancestor dependency). The
+  // `background` shorthand + !important overrides DSH's
+  // `.gdEzaW_bubble{background:var(--dsw-specific-bubble)}`. Never texture
+  // the user row/stack containers — that bleeds a big rectangle behind the
+  // bubble.
+  bubbleDisposer = styles.insert(
+    "[class*='bubble'] { background: " + t.color + " url('" + t.data + "') repeat !important; background-size:" + px + ' ' + px + " !important; image-rendering:pixelated !important; border: 3px solid #000 !important; border-radius: 12px !important; box-shadow: inset 0 2px 0 rgba(200,150,255,0.2), inset 2px 0 0 rgba(200,150,255,0.08), inset 0 -3px 0 rgba(0,0,0,0.6), inset -2px 0 0 rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.5) !important; color: #fff !important; max-width: 100% !important; min-width: 0 !important; overflow-wrap: anywhere !important; word-break: break-word !important; box-sizing: border-box !important; }" +
+    "[class*='bubble'] * { color: #fff !important; max-width: 100% !important; min-width: 0 !important; overflow-wrap: anywhere !important; word-break: break-word !important; box-sizing: border-box !important; }" +
+    "[class*='bubble'] pre, [class*='bubble'] code { white-space: pre-wrap !important; word-break: break-word !important; overflow-wrap: anywhere !important; overflow-x: hidden !important; }" +
+    "[class*='bubble'] *:not(button):not(a) { background: transparent !important; border: none !important; box-shadow: none !important; }"
+  );
+}
+
+
 function swatchData(data, color) {
   return { backgroundImage: 'url("' + data + '")', backgroundSize: '100% 100%', imageRendering: 'pixelated', backgroundColor: color || '#555' };
+}
+
+/**
+ * The full ordered texture catalog: built-in blocks (respecting hidden/renames)
+ * plus imported customs, in saved order. Shared by the background texture list,
+ * the bubble texture row, and the manager so every surface sees the same set.
+ */
+function textureItems() {
+  const hidden = store.hidden || [];
+  const renames = store.renames || {};
+  const order = store.order || [];
+  const builtins = Object.keys(TEX)
+    .filter((id) => hidden.indexOf(id) < 0)
+    .map((id) => ({ id: id, name: renames[id] || TEX[id].name, data: TEX[id].data, color: TEX[id].color, builtin: true }));
+  const customs = (store.custom || []).map((c) => Object.assign({}, c, { builtin: false }));
+  let items = builtins.concat(customs);
+  if (order.length) {
+    const byId = {};
+    items.forEach((it) => { byId[it.id] = it; });
+    items = order.map((id) => byId[id]).filter(Boolean).concat(items.filter((it) => order.indexOf(it.id) < 0));
+  }
+  return items;
 }
 
 function saveCustom() {
@@ -334,19 +380,20 @@ function Particles() {
   );
 }
 
-function ImportBox() {
+function ImportBox({ target }) {
   const [val, setVal] = React.useState('');
   const [msg, setMsg] = React.useState('');
   const [dragOver, setDragOver] = React.useState(false);
+  const isBg = target !== 'bubble';
   const doImportData = (data) => {
     const n = (store.customCount || 0) + 1;
     const id = 'custom-' + n;
     const item = { id: id, name: '导入纹理 ' + n, data: data, color: '#888' };
     setStore({ customCount: n, custom: store.custom.concat([item]) });
-    setStore({ texture: id });
-    applyTexture(id);
+    if (isBg) { setStore({ texture: id }); applyTexture(id); }
+    else { setStore({ bubble: id }); applyBubbleTexture(id); }
     saveCustom();
-    setMsg('已导入并应用');
+    setMsg('已导入并应用' + (isBg ? '到背景' : '到气泡'));
     setVal('');
   };
   const doImport = async () => {
@@ -431,11 +478,21 @@ function ImportBox() {
   );
 }
 
-function CustomList() {
+function CustomList({ target }) {
   const snap = useStore();
   const [editId, setEditId] = React.useState(null);
   const [editVal, setEditVal] = React.useState('');
   const manage = !!snap.manage;
+  const isBg = target !== 'bubble';
+  const activeOf = (c) => (isBg ? snap.texture : snap.bubble) === c.id ? '1' : '0';
+  const applyTo = (c) => {
+    if (isBg) { setStore({ texture: c.id }); applyTexture(c.id); }
+    else { setStore({ bubble: c.id }); applyBubbleTexture(c.id); }
+  };
+  const fallback = () => {
+    if (isBg) { setStore({ texture: 'grass' }); applyTexture('grass'); }
+    else { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
+  };
   const commitRename = (c) => {
     const name = String(editVal || '').trim();
     if (name) {
@@ -456,25 +513,16 @@ function CustomList() {
       if (hidden.indexOf(c.id) < 0) hidden.push(c.id);
       setStore({ hidden: hidden });
       if (snap.texture === c.id) { setStore({ texture: 'grass' }); applyTexture('grass'); }
+      if (snap.bubble === c.id) { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
     } else {
       setStore({ custom: store.custom.filter((x) => x.id !== c.id) });
       if (snap.texture === c.id) { setStore({ texture: 'grass' }); applyTexture('grass'); }
+      if (snap.bubble === c.id) { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
     }
     saveCustom();
   };
+  const items = textureItems();
   const hidden = store.hidden || [];
-  const renames = store.renames || {};
-  const order = store.order || [];
-  const builtins = Object.keys(TEX)
-    .filter((id) => hidden.indexOf(id) < 0)
-    .map((id) => ({ id: id, name: renames[id] || TEX[id].name, data: TEX[id].data, color: TEX[id].color, builtin: true }));
-  const customs = (snap.custom || []).map((c) => Object.assign({}, c, { builtin: false }));
-  let items = builtins.concat(customs);
-  if (order.length) {
-    const byId = {};
-    items.forEach((it) => { byId[it.id] = it; });
-    items = order.map((id) => byId[id]).filter(Boolean).concat(items.filter((it) => order.indexOf(it.id) < 0));
-  }
   const moveItem = (c, dir) => {
     const ids = items.map((x) => x.id);
     const i = ids.indexOf(c.id);
@@ -509,7 +557,7 @@ function CustomList() {
             style: { flex: 1, minWidth: 0, padding: '2px 6px', fontSize: 12 },
           })
         : React.createElement('span', { style: { color: '#e6e2d8', fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.name),
-      React.createElement('button', { className: 'mc-btn', 'data-active': snap.texture === c.id ? '1' : '0', onClick: () => { setStore({ texture: c.id }); applyTexture(c.id); }, style: { padding: '1px 8px', fontSize: 12 } }, '应用'),
+      React.createElement('button', { className: 'mc-btn', 'data-active': activeOf(c), onClick: () => applyTo(c), style: { padding: '1px 8px', fontSize: 12 } }, '应用'),
       manage ? React.createElement('button', { className: 'mc-btn', onClick: () => { if (editId === c.id) { commitRename(c); } else { setEditId(c.id); setEditVal(c.name); } }, style: { padding: '1px 8px', fontSize: 12 } }, '改名') : null,
       manage ? React.createElement('button', { className: 'mc-close', onClick: () => doDelete(c), style: { padding: '1px 8px', fontSize: 12 } }, '删除') : null,
       manage ? React.createElement('button', { className: 'mc-btn', onClick: () => moveItem(c, -1), style: { padding: '1px 8px', fontSize: 12 } }, '↑') : null,
@@ -681,6 +729,10 @@ function TexturePicker() {
   const snap = useStore();
   if (!snap.open) return null;
   const sizes = [64, 96, 128, 192, 256];
+  const bubbleSizes = [16, 24, 32, 48, 64];
+  const isBg = snap.tab !== 'bubble';
+  const applyBgSize = (v) => { const n = Math.max(8, Math.min(1024, Math.round(Number(v) || 0))); setStore({ size: n }); applyTexture(store.texture); };
+  const applyBubbleSize = (v) => { const n = Math.max(4, Math.min(256, Math.round(Number(v) || 0))); setStore({ bubbleSize: n }); applyBubbleTexture(store.bubble); };
   return React.createElement('div', {
     style: { position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', pointerEvents: 'auto' },
     onClick: () => setStore({ open: false }),
@@ -694,18 +746,56 @@ function TexturePicker() {
         React.createElement('span', null, '⛏ Minecraft 方块纹理'),
         React.createElement('button', { className: 'mc-close', onClick: () => setStore({ open: false }), style: { padding: '2px 10px' } }, '✕')
       ),
-      React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13, flexWrap: 'wrap' } },
-        React.createElement('span', { style: { marginRight: 4 } }, '纹理大小:'),
-        sizes.map((s) => React.createElement('button', {
-          key: s,
-          className: 'mc-btn',
-          'data-active': snap.size === s ? '1' : '0',
-          onClick: () => { setStore({ size: s }); applyTexture(store.texture); },
-          style: { padding: '2px 8px', fontSize: 12 },
-        }, String(s) + 'px'))
+      React.createElement('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+        React.createElement('button', { className: 'mc-btn', 'data-active': isBg ? '1' : '0', onClick: () => setStore({ tab: 'bg' }), style: { padding: '4px 14px', fontSize: 13 } }, '背景纹理'),
+        React.createElement('button', { className: 'mc-btn', 'data-active': isBg ? '0' : '1', onClick: () => setStore({ tab: 'bubble' }), style: { padding: '4px 14px', fontSize: 13 } }, '气泡纹理')
       ),
-      React.createElement(CustomList, null),
-      React.createElement(ImportBox, null),
+      isBg
+        ? React.createElement('div', null,
+            React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13, flexWrap: 'wrap' } },
+              React.createElement('span', { style: { marginRight: 4 } }, '纹理大小:'),
+              sizes.map((s) => React.createElement('button', {
+                key: s,
+                className: 'mc-btn',
+                'data-active': snap.size === s ? '1' : '0',
+                onClick: () => applyBgSize(s),
+                style: { padding: '2px 8px', fontSize: 12 },
+              }, String(s) + 'px')),
+              React.createElement('input', {
+                type: 'number', min: 8, max: 1024, step: 8, value: snap.size,
+                onChange: (e) => applyBgSize(e.target.value),
+                title: '自定义背景纹理大小（8–1024px）',
+                style: { width: 76, padding: '2px 6px', fontSize: 12 },
+              }),
+              React.createElement('span', { style: { color: '#9a948a', fontSize: 11 } }, 'px')
+            ),
+            React.createElement(CustomList, { target: 'bg' }),
+            React.createElement(ImportBox, { target: 'bg' })
+          )
+        : React.createElement('div', null,
+            React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13, flexWrap: 'wrap' } },
+              React.createElement('span', { style: { marginRight: 4 } }, '纹理大小:'),
+              bubbleSizes.map((s) => React.createElement('button', {
+                key: s,
+                className: 'mc-btn',
+                'data-active': snap.bubbleSize === s ? '1' : '0',
+                onClick: () => applyBubbleSize(s),
+                style: { padding: '2px 8px', fontSize: 12 },
+              }, String(s) + 'px')),
+              React.createElement('input', {
+                type: 'number', min: 4, max: 256, step: 4, value: snap.bubbleSize,
+                onChange: (e) => applyBubbleSize(e.target.value),
+                title: '自定义气泡纹理大小（4–256px）',
+                style: { width: 76, padding: '2px 6px', fontSize: 12 },
+              }),
+              React.createElement('span', { style: { color: '#9a948a', fontSize: 11 } }, 'px')
+            ),
+            React.createElement('div', { style: { marginBottom: 12 } },
+              React.createElement('button', { className: 'mc-btn', 'data-active': snap.bubble === 'none' ? '1' : '0', onClick: () => { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }, style: { padding: '4px 12px', fontSize: 12 } }, '不使用气泡纹理')
+            ),
+            React.createElement(CustomList, { target: 'bubble' }),
+            React.createElement(ImportBox, { target: 'bubble' })
+          ),
       React.createElement('div', { style: { marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, color: '#f2f2f2', fontSize: 13 } },
         React.createElement('input', { type: 'checkbox', id: 'mc-particles', checked: snap.particles, onChange: (e) => setStore({ particles: e.target.checked }) }),
         React.createElement('label', { htmlFor: 'mc-particles', style: { cursor: 'pointer' } }, '漂浮方块粒子（装饰元素）')
@@ -725,6 +815,7 @@ module.exports.default = {
     ctx.effect(() => styles.insert(CHROME));
     ctx.effect(() => () => {
       if (texDisposer) { try { texDisposer(); } catch (e) { /* ignore */ } texDisposer = null; }
+      if (bubbleDisposer) { try { bubbleDisposer(); } catch (e) { /* ignore */ } bubbleDisposer = null; }
       styles.dispose();
       if (musicAudio) { try { musicAudio.pause(); musicAudio.src = ''; } catch (e) { /* ignore */ } }
     });
@@ -814,6 +905,7 @@ module.exports.default = {
       return () => { done = true; };
     });
     applyTexture('grass');
+    applyBubbleTexture(store.bubble);
     const slots = ctx.get('slots');
     if (slots === undefined) return;
     slots.inject('sidebar.footer.action', () => slots.register(
