@@ -121,11 +121,12 @@ const CHROME = [
   '.mc-close:hover { background: #7d7d7d !important; }',
 ].join('\n');
 
-const store = { open: false, tab: 'bg', texture: 'grass', bubble: 'none', bubbleSize: 32, particles: true, size: 128, custom: [], customCount: 0, renames: {}, hidden: [], order: [], manage: false, musicOpen: false, musicTrack: -1, musicPlaying: false, musicVolume: 0.7, customMusic: [], customMusicCount: 0 };
+const store = { open: false, tab: 'bg', texture: 'grass', bubble: 'none', bubbleSize: 32, input: 'none', inputSize: 32, bubbleTextColor: '#ffffff', inputTextColor: '#ffffff', particles: true, size: 128, custom: [], customCount: 0, renames: {}, hidden: [], order: [], manage: false, musicOpen: false, musicTrack: -1, musicPlaying: false, musicVolume: 0.7, customMusic: [], customMusicCount: 0 };
 const listeners = [];
 function setStore(patch) {
   Object.assign(store, patch);
   listeners.slice().forEach((fn) => fn());
+    saveSettings();
 }
 function useStore() {
   const [snap, setSnap] = React.useState(Object.assign({}, store));
@@ -166,10 +167,15 @@ function applyBubbleTexture(id) {
   if (bubbleDisposer) { bubbleDisposer(); bubbleDisposer = null; }
   // 'none' (or empty) means no bubble texture: remove any injected style so
   // the bubble falls back to DSH's default (transparent) background.
-  if (!id || id === 'none') return;
+  if (!id || id === 'none') {
+    const tc = store.bubbleTextColor || '#ffffff';
+    bubbleDisposer = styles.insert("[class*='bubble'], [class*='bubble'] * { color: " + tc + " !important; }");
+    return;
+  }
   const t = getTex(id);
   if (!t) return;
   const px = (store.bubbleSize || 32) + 'px';
+    const tc = store.bubbleTextColor || '#ffffff';
   // Texture only the actual bubble element itself (`gdEzaW_bubble` is the
   // user message bubble; class-substring match, no ancestor dependency). The
   // `background` shorthand + !important overrides DSH's
@@ -177,10 +183,34 @@ function applyBubbleTexture(id) {
   // the user row/stack containers — that bleeds a big rectangle behind the
   // bubble.
   bubbleDisposer = styles.insert(
-    "[class*='bubble'] { background: " + t.color + " url('" + t.data + "') repeat !important; background-size:" + px + ' ' + px + " !important; image-rendering:pixelated !important; border: 3px solid #000 !important; border-radius: 12px !important; box-shadow: inset 0 2px 0 rgba(200,150,255,0.2), inset 2px 0 0 rgba(200,150,255,0.08), inset 0 -3px 0 rgba(0,0,0,0.6), inset -2px 0 0 rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.5) !important; color: #fff !important; max-width: 100% !important; min-width: 0 !important; overflow-wrap: anywhere !important; word-break: break-word !important; box-sizing: border-box !important; }" +
-    "[class*='bubble'] * { color: #fff !important; max-width: 100% !important; min-width: 0 !important; overflow-wrap: anywhere !important; word-break: break-word !important; box-sizing: border-box !important; }" +
+    "[class*='bubble'] { background: " + t.color + " url('" + t.data + "') repeat !important; background-size:" + px + ' ' + px + " !important; image-rendering:pixelated !important; border: 2px solid #000 !important; border-radius: 4px !important; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.55), 0 4px 12px rgba(0,0,0,0.5) !important; color: " + tc + " !important; max-width: 100% !important; min-width: 0 !important; overflow-wrap: anywhere !important; word-break: break-word !important; box-sizing: border-box !important; }" +
+    "[class*='bubble'] * { color: " + tc + " !important; max-width: 100% !important; min-width: 0 !important; overflow-wrap: anywhere !important; word-break: break-word !important; box-sizing: border-box !important; }" +
     "[class*='bubble'] pre, [class*='bubble'] code { white-space: pre-wrap !important; word-break: break-word !important; overflow-wrap: anywhere !important; overflow-x: hidden !important; }" +
     "[class*='bubble'] *:not(button):not(a) { background: transparent !important; border: none !important; box-shadow: none !important; }"
+  );
+}
+
+let inputDisposer = null;
+function applyInputTexture(id) {
+  if (inputDisposer) { inputDisposer(); inputDisposer = null; }
+  // 'none' (or empty) means no input texture: remove any injected style so
+  // the composer input falls back to DSH's default background.
+  if (!id || id === 'none') {
+    const tc = store.inputTextColor || '#ffffff';
+    inputDisposer = styles.insert("[data-composer-card] [data-input-scroll], [data-composer-card] [data-input-backdrop], [data-composer-card] textarea { color: " + tc + " !important; }");
+    return;
+  }
+  const t = getTex(id);
+  if (!t) return;
+  const px = (store.inputSize || 32) + 'px';
+    const tc = store.inputTextColor || '#ffffff';
+  // Target only the actual input scroll area inside the composer seat, NOT the
+  // whole composer card or the bottom panel. This keeps the texture limited to
+  // the text input box itself.
+  inputDisposer = styles.insert(
+    "[data-composer-card] { background: " + t.color + " url('" + t.data + "') repeat !important; background-size:" + px + ' ' + px + " !important; image-rendering: pixelated !important; border: 2px solid #000 !important; border-radius: 4px !important; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.55), 0 4px 12px rgba(0,0,0,0.5) !important; }" +
+    "[data-composer-card] [data-input-scroll], [data-composer-card] [data-input-backdrop], [data-composer-card] textarea { background: transparent !important; color: " + tc + " !important; caret-color: #7cf07c !important; }" +
+    "[data-composer-card] *:not(button):not(a) { background: transparent !important; border: none !important; box-shadow: none !important; }"
   );
 }
 
@@ -214,6 +244,21 @@ function textureItems() {
 function saveCustom() {
   try {
     mcRpc('save-custom-textures', { custom: store.custom, customCount: store.customCount, renames: store.renames || {}, hidden: store.hidden || [], order: store.order || [] }).catch(() => {});
+  } catch (e) { /* ignore */ }
+}
+function saveSettings() {
+  try {
+    mcRpc('save-settings', {
+      texture: store.texture,
+      bubble: store.bubble,
+      input: store.input,
+      size: store.size,
+      bubbleSize: store.bubbleSize,
+      inputSize: store.inputSize,
+      bubbleTextColor: store.bubbleTextColor || '#ffffff',
+      inputTextColor: store.inputTextColor || '#ffffff',
+      particles: store.particles,
+    }).catch(() => {});
   } catch (e) { /* ignore */ }
 }
 const MCDN = 'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/sounds/';
@@ -384,16 +429,16 @@ function ImportBox({ target }) {
   const [val, setVal] = React.useState('');
   const [msg, setMsg] = React.useState('');
   const [dragOver, setDragOver] = React.useState(false);
-  const isBg = target !== 'bubble';
+  const isBg = target === 'bg';
   const doImportData = (data) => {
     const n = (store.customCount || 0) + 1;
     const id = 'custom-' + n;
     const item = { id: id, name: '导入纹理 ' + n, data: data, color: '#888' };
     setStore({ customCount: n, custom: store.custom.concat([item]) });
     if (isBg) { setStore({ texture: id }); applyTexture(id); }
-    else { setStore({ bubble: id }); applyBubbleTexture(id); }
+    else if (target === 'bubble') { setStore({ bubble: id }); applyBubbleTexture(id); }
+    else { setStore({ input: id }); applyInputTexture(id); }
     saveCustom();
-    setMsg('已导入并应用' + (isBg ? '到背景' : '到气泡'));
     setVal('');
   };
   const doImport = async () => {
@@ -483,15 +528,17 @@ function CustomList({ target }) {
   const [editId, setEditId] = React.useState(null);
   const [editVal, setEditVal] = React.useState('');
   const manage = !!snap.manage;
-  const isBg = target !== 'bubble';
-  const activeOf = (c) => (isBg ? snap.texture : snap.bubble) === c.id ? '1' : '0';
+  const isBg = target === 'bg';
+  const activeOf = (c) => (isBg ? snap.texture : target === 'bubble' ? snap.bubble : snap.input) === c.id ? '1' : '0';
   const applyTo = (c) => {
     if (isBg) { setStore({ texture: c.id }); applyTexture(c.id); }
-    else { setStore({ bubble: c.id }); applyBubbleTexture(c.id); }
+    else if (target === 'bubble') { setStore({ bubble: c.id }); applyBubbleTexture(c.id); }
+      else { setStore({ input: c.id }); applyInputTexture(c.id); }
   };
   const fallback = () => {
     if (isBg) { setStore({ texture: 'grass' }); applyTexture('grass'); }
-    else { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
+    else if (target === 'bubble') { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
+      else { setStore({ input: 'none' }); applyInputTexture('none'); }
   };
   const commitRename = (c) => {
     const name = String(editVal || '').trim();
@@ -514,10 +561,12 @@ function CustomList({ target }) {
       setStore({ hidden: hidden });
       if (snap.texture === c.id) { setStore({ texture: 'grass' }); applyTexture('grass'); }
       if (snap.bubble === c.id) { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
+      if (snap.input === c.id) { setStore({ input: 'none' }); applyInputTexture('none'); }
     } else {
       setStore({ custom: store.custom.filter((x) => x.id !== c.id) });
       if (snap.texture === c.id) { setStore({ texture: 'grass' }); applyTexture('grass'); }
       if (snap.bubble === c.id) { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }
+      if (snap.input === c.id) { setStore({ input: 'none' }); applyInputTexture('none'); }
     }
     saveCustom();
   };
@@ -730,9 +779,12 @@ function TexturePicker() {
   if (!snap.open) return null;
   const sizes = [64, 96, 128, 192, 256];
   const bubbleSizes = [16, 24, 32, 48, 64];
-  const isBg = snap.tab !== 'bubble';
+  const inputSizes = [16, 24, 32, 48, 64];
+  const isBg = snap.tab === 'bg';
+  const isInput = snap.tab === 'input';
   const applyBgSize = (v) => { const n = Math.max(8, Math.min(1024, Math.round(Number(v) || 0))); setStore({ size: n }); applyTexture(store.texture); };
   const applyBubbleSize = (v) => { const n = Math.max(4, Math.min(256, Math.round(Number(v) || 0))); setStore({ bubbleSize: n }); applyBubbleTexture(store.bubble); };
+  const applyInputSize = (v) => { const n = Math.max(4, Math.min(256, Math.round(Number(v) || 0))); setStore({ inputSize: n }); applyInputTexture(store.input); };
   return React.createElement('div', {
     style: { position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', pointerEvents: 'auto' },
     onClick: () => setStore({ open: false }),
@@ -748,7 +800,8 @@ function TexturePicker() {
       ),
       React.createElement('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
         React.createElement('button', { className: 'mc-btn', 'data-active': isBg ? '1' : '0', onClick: () => setStore({ tab: 'bg' }), style: { padding: '4px 14px', fontSize: 13 } }, '背景纹理'),
-        React.createElement('button', { className: 'mc-btn', 'data-active': isBg ? '0' : '1', onClick: () => setStore({ tab: 'bubble' }), style: { padding: '4px 14px', fontSize: 13 } }, '气泡纹理')
+        React.createElement('button', { className: 'mc-btn', 'data-active': isBg ? '0' : isInput ? '0' : '1', onClick: () => setStore({ tab: 'bubble' }), style: { padding: '4px 14px', fontSize: 13 } }, '气泡纹理'),
+        React.createElement('button', { className: 'mc-btn', 'data-active': isInput ? '1' : '0', onClick: () => setStore({ tab: 'input' }), style: { padding: '4px 14px', fontSize: 13 } }, '输入框纹理')
       ),
       isBg
         ? React.createElement('div', null,
@@ -772,7 +825,7 @@ function TexturePicker() {
             React.createElement(CustomList, { target: 'bg' }),
             React.createElement(ImportBox, { target: 'bg' })
           )
-        : React.createElement('div', null,
+        : snap.tab === 'bubble' ? React.createElement('div', null,
             React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13, flexWrap: 'wrap' } },
               React.createElement('span', { style: { marginRight: 4 } }, '纹理大小:'),
               bubbleSizes.map((s) => React.createElement('button', {
@@ -790,11 +843,43 @@ function TexturePicker() {
               }),
               React.createElement('span', { style: { color: '#9a948a', fontSize: 11 } }, 'px')
             ),
+              React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13 } },
+                React.createElement('span', { style: { marginRight: 4 } }, '文字颜色:'),
+                React.createElement('input', { type: 'color', value: snap.bubbleTextColor, onChange: (e) => { setStore({ bubbleTextColor: e.target.value }); applyBubbleTexture(store.bubble); }, style: { width: 40, height: 28, padding: 0, border: '2px solid #000' } })
+              ),
             React.createElement('div', { style: { marginBottom: 12 } },
               React.createElement('button', { className: 'mc-btn', 'data-active': snap.bubble === 'none' ? '1' : '0', onClick: () => { setStore({ bubble: 'none' }); applyBubbleTexture('none'); }, style: { padding: '4px 12px', fontSize: 12 } }, '不使用气泡纹理')
             ),
             React.createElement(CustomList, { target: 'bubble' }),
             React.createElement(ImportBox, { target: 'bubble' })
+          )
+          : React.createElement('div', null,
+            React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13, flexWrap: 'wrap' } },
+              React.createElement('span', { style: { marginRight: 4 } }, '纹理大小:'),
+              inputSizes.map((s) => React.createElement('button', {
+                key: s,
+                className: 'mc-btn',
+                'data-active': snap.inputSize === s ? '1' : '0',
+                onClick: () => applyInputSize(s),
+                style: { padding: '2px 8px', fontSize: 12 },
+              }, String(s) + 'px')),
+              React.createElement('input', {
+                type: 'number', min: 4, max: 256, step: 4, value: snap.inputSize,
+                onChange: (e) => applyInputSize(e.target.value),
+                title: '自定义输入框纹理大小（4–256px）',
+                style: { width: 76, padding: '2px 6px', fontSize: 12 },
+              }),
+              React.createElement('span', { style: { color: '#9a948a', fontSize: 11 } }, 'px')
+            ),
+              React.createElement('div', { style: { marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#f2f2f2', fontSize: 13 } },
+                React.createElement('span', { style: { marginRight: 4 } }, '文字颜色:'),
+                React.createElement('input', { type: 'color', value: snap.inputTextColor, onChange: (e) => { setStore({ inputTextColor: e.target.value }); applyInputTexture(store.input); }, style: { width: 40, height: 28, padding: 0, border: '2px solid #000' } })
+              ),
+            React.createElement('div', { style: { marginBottom: 12 } },
+              React.createElement('button', { className: 'mc-btn', 'data-active': snap.input === 'none' ? '1' : '0', onClick: () => { setStore({ input: 'none' }); applyInputTexture('none'); }, style: { padding: '4px 12px', fontSize: 12 } }, '不使用输入框纹理')
+            ),
+            React.createElement(CustomList, { target: 'input' }),
+            React.createElement(ImportBox, { target: 'input' })
           ),
       React.createElement('div', { style: { marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, color: '#f2f2f2', fontSize: 13 } },
         React.createElement('input', { type: 'checkbox', id: 'mc-particles', checked: snap.particles, onChange: (e) => setStore({ particles: e.target.checked }) }),
@@ -816,6 +901,7 @@ module.exports.default = {
     ctx.effect(() => () => {
       if (texDisposer) { try { texDisposer(); } catch (e) { /* ignore */ } texDisposer = null; }
       if (bubbleDisposer) { try { bubbleDisposer(); } catch (e) { /* ignore */ } bubbleDisposer = null; }
+      if (inputDisposer) { try { inputDisposer(); } catch (e) { /* ignore */ } inputDisposer = null; }
       styles.dispose();
       if (musicAudio) { try { musicAudio.pause(); musicAudio.src = ''; } catch (e) { /* ignore */ } }
     });
@@ -904,8 +990,32 @@ module.exports.default = {
       }).catch(() => {});
       return () => { done = true; };
     });
+      ctx.effect(() => {
+        let done = false;
+        mcRpc('load-settings').then((res) => {
+          if (done) return;
+          if (res) {
+            const patch = {};
+            if (res.texture) patch.texture = res.texture;
+            if (res.bubble !== undefined) patch.bubble = res.bubble;
+            if (res.input !== undefined) patch.input = res.input;
+            if (res.size) patch.size = Number(res.size);
+            if (res.bubbleSize) patch.bubbleSize = Number(res.bubbleSize);
+            if (res.inputSize) patch.inputSize = Number(res.inputSize);
+            if (res.bubbleTextColor) patch.bubbleTextColor = res.bubbleTextColor;
+            if (res.inputTextColor) patch.inputTextColor = res.inputTextColor;
+            if (typeof res.particles === 'boolean') patch.particles = res.particles;
+            setStore(patch);
+            applyTexture(store.texture);
+            applyBubbleTexture(store.bubble);
+            applyInputTexture(store.input);
+          }
+        }).catch(() => {});
+        return () => { done = true; };
+      });
     applyTexture('grass');
     applyBubbleTexture(store.bubble);
+    applyInputTexture(store.input);
     const slots = ctx.get('slots');
     if (slots === undefined) return;
     slots.inject('sidebar.footer.action', () => slots.register(
